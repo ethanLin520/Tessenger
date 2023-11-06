@@ -91,15 +91,14 @@ def handle_client(conn, addr):
             with open('messagelog.txt', 'a') as log:
                 log.write(f"{message_id}; {msg_timestamp}; {recv}; {content}\n")
 
-            conn.sendall(f"Message is successfully sent at {msg_timestamp}, id = {message_id}.\n".encode())
-            print(f"User: {username} requested {command}.")
-
             message_id += 1
 
             # display to the receiver
-            # dest_conn = active_user[recv][3]
-            # dest_conn.sendall(f"{msg_timestamp}, {username}: {content}\n".encode())
+            dest_conn = active_user[recv][3]
+            dest_conn.sendall(f"\n\n{msg_timestamp}, {username}: {content}\n\n".encode())
 
+            conn.sendall(f"Message is successfully sent at {msg_timestamp}, id = {message_id}.\n".encode())
+            print(f"User: {username} requested {command} successfully.")
 
         elif command == '/activeuser':
             if len(arguments) != 1:
@@ -110,13 +109,13 @@ def handle_client(conn, addr):
             if len(active_user) == 1:
                 conn.sendall(b'no other active user.\n')
             else:
-                message = ""
+                userlist = "\n"
                 for user, value in active_user.items():
                     if user != username:
-                        message += f"{user}, active since {value[0]}. IP address: {value[1]}. UDP port: {value[2]}\n"
-
-                conn.sendall(message.encode())
-            print(f"User: {username} requested {command}.")
+                        userlist += f"{user}, active since {value[0]}. IP address: {value[1]}. UDP port: {value[2]}\n"
+                userlist += '\n'
+                conn.sendall(userlist.encode())
+            print(f"User: {username} requested {command} successfully.")
         else:
             conn.sendall(b'Command not recognized.\n')
             print(f"Invalid command by user: {username}.")

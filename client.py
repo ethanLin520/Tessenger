@@ -1,5 +1,6 @@
 import sys
 import socket
+import select
 
 # Check if the correct number of arguments is provided
 if len(sys.argv) != 4:
@@ -28,25 +29,24 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((server_IP, server_port))
     
     print("Connected to the server.")
-    
+
     while True:
-        data = s.recv(1024)
-        if not data:
-            print("Connection closed by the server.")
-            break
+        # Use select to wait for input from stdin and data from the server simultaneously
+        readable, _, _ = select.select([sys.stdin, s], [], [], 1)
 
-        prompt = data.decode()
+        if s in readable:
+            # Data from the server is available
+            data = s.recv(1024)
+            if not data:
+                print("Connection closed by the server.")
+                sys.exit(0)
 
-        if 'Welcome' in prompt:
-            print(prompt)
-            s.sendall(f"{client_udp_port}".encode())
-            continue
-        elif prompt.endswith('\n'):
-            print(prompt, end='')
-            continue
+            prompt = data.decode()
+            print(prompt, end='', flush=True)
+            if 'Welcome' in prompt:
+                s.sendall(f"{client_udp_port}".encode())
 
-        command = input(prompt)
-        
-        # Send command to the server
-        s.sendall(command.encode())
-        
+        if sys.stdin in readable:
+            # User input is available
+            user_input = sys.stdin.readline().strip()
+            s.sendall(user_input.encode())
