@@ -31,6 +31,12 @@ login_unblock_time = {}
 # Dict of all active users. The value field consist of (login time, IP, UDP port, conn)
 active_user = OrderedDict()
 
+# Dict of all chat groups. The value field cosist of [[members added], [members joined], group_message_id]
+groups = OrderedDict()
+
+# Dict of all user's joined groups
+users_joined_groups = {}
+
 with open(USER_LOG, 'w') as file:
     pass
 
@@ -68,8 +74,18 @@ def handle_client(conn, addr):
         print(f"Received command: {command} from user: {username}.")
 
         if command == '/logout':
+            if len(arguments) != 1:
+                conn.sendall(b'Usage: /logout\n')
+                print(f"Invalid arguements input by user: {username}. Request for {command} is denied.")
+                continue
+
+            for g in users_joined_groups[username]:
+                groups[g][1].remove(username)
+            users_joined_groups.pop(username)
+
             active_user.pop(username)
             log_active_user()
+            conn.sendall(b'You have successfully logged out.\n')
             conn.sendall(b'Goodbye!\n')
             print(f"User: {username} is logged out.")
             break
@@ -78,7 +94,7 @@ def handle_client(conn, addr):
             global message_id
             if len(arguments) < 3:
                 conn.sendall(b'Usage: /msgto USERNAME MESSAGE_CONTENT\n')
-                print(f"Invalid arguements input by user: {username}.")
+                print(f"Invalid arguements input by user: {username}. Request for {command} is denied.")
                 continue
 
             recv = arguments[1]
@@ -89,8 +105,6 @@ def handle_client(conn, addr):
             with open(MSG_LOG, 'a') as log:
                 log.write(f"{message_id}; {msg_timestamp}; {recv}; {content}\n")
 
-            message_id += 1
-
             # display to the receiver
             dest_conn = active_user[recv][3]
             dest_conn.sendall(f"\n\n{msg_timestamp}, {username}: {content}\n\n".encode())
@@ -99,10 +113,12 @@ def handle_client(conn, addr):
             conn.sendall(f"Message is successfully sent at {msg_timestamp}, id = {message_id}.\n".encode())
             print(f"User: {username} requested {command} successfully.")
 
+            message_id += 1
+
         elif command == '/activeuser':
             if len(arguments) != 1:
                 conn.sendall(b'Usage: /activeuser\n')
-                print(f"Invalid arguements input by user: {username}.")
+                print(f"Invalid arguements input by user: {username}. Request for {command} is denied.")
                 continue
 
             if len(active_user) == 1:
@@ -115,6 +131,122 @@ def handle_client(conn, addr):
                 userlist += '\n'
                 conn.sendall(userlist.encode())
             print(f"User: {username} requested {command} successfully.")
+
+        elif command == '/creategroup':
+            if len(arguments) < 3:
+                conn.sendall(b'Usage: /creategroup groupname username1 username2 ..\n')
+                print(f"Invalid arguements input by user: {username}. Request for {command} is denied.")
+                continue
+
+            groupname = arguments[1]
+            if groupname in groups:
+                conn.sendall(f'Group name: {groupname} already exist. Please try another name.\n'.encode())
+                print(f"Invalid group name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            # check name is legal
+            if not groupname.isalnum():
+                conn.sendall(f'Group name: {groupname} is not legal. Group name can only contain alphanumeric character. Please try another name.\n'.encode())
+                print(f"Invalid group name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            # check invitees are legal
+            invitees = arguments[2:]
+            invalid_invitee = []
+            for user in invitees:
+                if user not in active_user:
+                    invalid_invitee.append(user)
+
+            if invalid_invitee != []:
+                namelist = ", ".join(invalid_invitee)
+                conn.sendall(f'Invalid invitee username: {namelist}. Please try other users.\n'.encode())
+                print(f"Invalid invitee name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            members = invitees
+            members.insert(0, username)
+            groups[groupname] = [members, [username], 1]   # [[members_added], [members_joined], group_message_id]
+
+            with open(f"{groupname}_{MSG_LOG}", 'w'):
+                pass
+
+            conn.sendall(f"\nGroup chat room has been created, room name: {groupname}, users added to this room: {members}.\n\n".encode())
+            print(f"User: {username} successfully created the group chat: {groupname}.")
+
+        elif command == '/joingroup':
+            if len(arguments) != 2:
+                conn.sendall(b'Usage: /joingroup groupname\n')
+                print(f"Invalid arguements input by user: {username}. Request for {command} is denied.")
+                continue
+
+            groupname = arguments[1]
+            if groupname not in groups:
+                conn.sendall(f'Group: {groupname} does not exist. Please try again.\n'.encode())
+                print(f"Invalid group name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            if username not in groups[groupname][0]:
+                conn.sendall(f'You are not part of the group: {groupname}.\n'.encode())
+                print(f"Invalid group name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            if username in groups[groupname][1]:
+                conn.sendall(f'You already joined {groupname}.\n'.encode())
+                print(f"User: {username} already in group. Request for {command} is denied.")
+                continue
+
+            groups[groupname][1].append(username)
+            users_joined_groups[username].append(groupname)
+
+            conn.sendall(f'You have successfully joined {groupname}. You can now send group message in {groupname}.\n'.encode())
+            print(f"User: {username} successfully joined {groupname}.")
+
+        elif command == '/groupmsg':
+            if len(arguments) < 3:
+                conn.sendall(b'Usage: /groupmsg groupname message\n')
+                print(f"Invalid arguements input by user: {username}. Request for {command} is denied.")
+                continue
+
+            groupname = arguments[1]
+            if groupname not in groups:
+                conn.sendall(f'Group: {groupname} does not exist. Please try again.\n'.encode())
+                print(f"Invalid group name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            if username not in groups[groupname][0]:
+                conn.sendall(f'You are not part of the group: {groupname}.\n'.encode())
+                print(f"Invalid group name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            joined_users = groups[groupname][1]
+            if username not in joined_users:
+                conn.sendall(f'You have not joined {groupname}.\n'.encode())
+                print(f"User: {username} has not joined the group. Request for {command} is denied.")
+                continue
+
+            content = " ".join(arguments[2:])
+            msg_timestamp = command_timestamp.strftime("%d %b %Y %H:%M:%S")
+
+            with open(f"{groupname}_{MSG_LOG}", 'a') as log:
+                log.write(f"{groups[groupname][2]}; {msg_timestamp}; {username}; {content}\n")
+
+            for recv in joined_users:
+                if recv == username:
+                    continue
+
+                # display to the receiver
+                dest_conn = active_user[recv][3]
+                dest_conn.sendall(f"\n\n{msg_timestamp}, {groupname}, {username}: {content}\n\n".encode())
+                dest_conn.sendall(COMMAND_PROMPT)
+
+            conn.sendall(f"Group message is successfully sent at {msg_timestamp} in {groupname}.\n".encode())
+            print(f"User: {username} requested {command} successfully.")
+
+            groups[groupname][2] += 1   # group_message_id
+
+        elif command == '/unimplemented':
+            conn.sendall(b'Command not implemented.\n')
+            print(f"Unimplemented command by user: {username}.")
 
         elif command == '/help':
             conn.sendall(HELP_PROMPT.encode())
@@ -169,6 +301,8 @@ def authenticate(conn, addr):
 
             active_user[username] = (current_time, addr[0], client_upd_port, conn)
             log_active_user()
+
+            users_joined_groups[username] = []
 
             return username, client_upd_port
         else:
