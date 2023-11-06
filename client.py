@@ -39,14 +39,18 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             data = s.recv(1024)
             if not data:
                 print("Connection closed by the server.")
-                sys.exit(0)
+                break
 
             prompt = data.decode()
             print(prompt, end='', flush=True)
             if 'Welcome' in prompt:
                 s.sendall(f"{client_udp_port}".encode())
+            elif 'Goodbye' in prompt:
+                break
 
         if sys.stdin in readable:
             # User input is available
             user_input = sys.stdin.readline().strip()
             s.sendall(user_input.encode())
+
+    s.close()

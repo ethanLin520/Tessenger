@@ -34,6 +34,9 @@ active_user = OrderedDict()
 # Dict of all chat groups. The value field cosist of [[members added], [members joined], group_message_id]
 groups = OrderedDict()
 
+# Dict of all user's joined groups
+users_joined_groups = {}
+
 with open(USER_LOG, 'w') as file:
     pass
 
@@ -71,8 +74,18 @@ def handle_client(conn, addr):
         print(f"Received command: {command} from user: {username}.")
 
         if command == '/logout':
+            if len(arguments) != 1:
+                conn.sendall(b'Usage: /logout\n')
+                print(f"Invalid arguements input by user: {username}. Request for {command} is denied.")
+                continue
+
+            for g in users_joined_groups[username]:
+                groups[g][1].remove(username)
+            users_joined_groups.pop(username)
+
             active_user.pop(username)
             log_active_user()
+            conn.sendall(b'You have successfully logged out.\n')
             conn.sendall(b'Goodbye!\n')
             print(f"User: {username} is logged out.")
             break
@@ -183,6 +196,7 @@ def handle_client(conn, addr):
                 continue
 
             groups[groupname][1].append(username)
+            users_joined_groups[username].append(groupname)
 
             conn.sendall(f'You have successfully joined {groupname}. You can now send group message in {groupname}.\n'.encode())
             print(f"User: {username} successfully joined {groupname}.")
@@ -287,6 +301,8 @@ def authenticate(conn, addr):
 
             active_user[username] = (current_time, addr[0], client_upd_port, conn)
             log_active_user()
+
+            users_joined_groups[username] = []
 
             return username, client_upd_port
         else:
