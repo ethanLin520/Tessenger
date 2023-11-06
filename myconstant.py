@@ -8,6 +8,8 @@ USER_LOG = 'userlog.txt'
 MSG_LOG = 'messagelog.txt'
 CREDENTIAL = 'credentials.txt'
 
+UDP_BUFFER = 1024
+
 #   TEXT
 
 COMMAND_PROMPT = b'Enter one of the following commands (/msgto, /activeuser, /creategroup, /joingroup, /groupmsg, /p2pvideo ,/logout, /help): '

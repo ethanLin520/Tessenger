@@ -244,9 +244,8 @@ def handle_client(conn, addr):
 
             groups[groupname][2] += 1   # group_message_id
 
-        elif command == '/unimplemented':
-            conn.sendall(b'Command not implemented.\n')
-            print(f"Unimplemented command by user: {username}.")
+        elif command == '/p2pvideo':
+            pass
 
         elif command == '/help':
             conn.sendall(HELP_PROMPT.encode())
