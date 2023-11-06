@@ -4,6 +4,8 @@ import threading
 from datetime import datetime, timedelta
 from collections import OrderedDict
 
+from myconstant import *
+
 # Check if the correct number of arguments is provided
 if len(sys.argv) != 3:
     print("Usage: python3 server.py server_port number_of_consecutive_failed_attempts")
@@ -23,28 +25,23 @@ if not 1 <= max_attempts <= 5:
     print("The number of consecutive failed attempts must be between 1 and 5.")
     sys.exit(1)
 
-BLOCK_TIME = 10     # seconds
-
-# Server settings
-HOST = '0.0.0.0'
-
 login_failed_attempt = {}
 login_unblock_time = {}
 
 # Dict of all active users. The value field consist of (login time, IP, UDP port, conn)
 active_user = OrderedDict()
 
-with open('userlog.txt', 'w') as file:
+with open(USER_LOG, 'w') as file:
     pass
 
-with open('messagelog.txt', 'w') as file:
+with open(MSG_LOG, 'w') as file:
     pass
 
 message_id = 1
 
 # Load credentials from file
 def load_credentials():
-    with open('credentials.txt', 'r') as f:
+    with open(CREDENTIAL, 'r') as f:
         return [line.strip().split() for line in f.readlines()]
 
 # Handle client connection
@@ -59,7 +56,7 @@ def handle_client(conn, addr):
 
     # Main loop for handling commands
     while True:
-        conn.sendall(b'Enter one of the following commands (/msgto, /activeuser, /creategroup, /joingroup, /groupmsg, /p2pvideo ,/logout, /?): ')
+        conn.sendall(COMMAND_PROMPT)
         print("Waiting for user input...")
 
         arguments = conn.recv(1024).decode().strip().split()
@@ -76,6 +73,7 @@ def handle_client(conn, addr):
             conn.sendall(b'Goodbye!\n')
             print(f"User: {username} is logged out.")
             break
+
         elif command == '/msgto':
             global message_id
             if len(arguments) < 3:
@@ -88,7 +86,7 @@ def handle_client(conn, addr):
             msg_timestamp = command_timestamp.strftime("%d %b %Y %H:%M:%S")
 
             # log message
-            with open('messagelog.txt', 'a') as log:
+            with open(MSG_LOG, 'a') as log:
                 log.write(f"{message_id}; {msg_timestamp}; {recv}; {content}\n")
 
             message_id += 1
@@ -96,6 +94,7 @@ def handle_client(conn, addr):
             # display to the receiver
             dest_conn = active_user[recv][3]
             dest_conn.sendall(f"\n\n{msg_timestamp}, {username}: {content}\n\n".encode())
+            dest_conn.sendall(COMMAND_PROMPT)
 
             conn.sendall(f"Message is successfully sent at {msg_timestamp}, id = {message_id}.\n".encode())
             print(f"User: {username} requested {command} successfully.")
@@ -116,6 +115,11 @@ def handle_client(conn, addr):
                 userlist += '\n'
                 conn.sendall(userlist.encode())
             print(f"User: {username} requested {command} successfully.")
+
+        elif command == '/help':
+            conn.sendall(HELP_PROMPT.encode())
+            print(f"User: {username} requested {command} successfully.")
+
         else:
             conn.sendall(b'Command not recognized.\n')
             print(f"Invalid command by user: {username}.")
@@ -141,7 +145,7 @@ def authenticate(conn, addr):
         print(f"Received password for {username}.")
 
         attempts = login_failed_attempt[username] if username in login_failed_attempt else 0
-        
+
         # Check if user is currently blocked
         if username in login_unblock_time:
             block_time = login_unblock_time[username]
@@ -183,7 +187,7 @@ def authenticate(conn, addr):
 
 def log_active_user():
     i = 1
-    with open('userlog.txt', 'w') as log:
+    with open(USER_LOG, 'w') as log:
         for user, value in active_user.items():
             log.write(f'{i}; {value[0]}; {user}; {value[1]}; {value[2]}\n')
             i += 1
