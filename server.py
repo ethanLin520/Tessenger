@@ -30,10 +30,17 @@ HOST = '0.0.0.0'
 
 login_failed_attempt = {}
 login_unblock_time = {}
+
+# Dict of all active users. The value field consist of (login time, IP, UDP port, conn)
 active_user = OrderedDict()
 
 with open('userlog.txt', 'w') as file:
     pass
+
+with open('messagelog.txt', 'w') as file:
+    pass
+
+message_id = 1
 
 # Load credentials from file
 def load_credentials():
@@ -55,9 +62,14 @@ def handle_client(conn, addr):
         conn.sendall(b'Enter one of the following commands (/msgto, /activeuser, /creategroup, /joingroup, /groupmsg, /p2pvideo ,/logout, /?): ')
         print("Waiting for user input...")
 
-        user_argv = conn.recv(1024).decode().strip()
-        arguments = user_argv.split()
+        arguments = conn.recv(1024).decode().strip().split()
+        if not arguments:
+            continue
+
         command = arguments[0]
+        command_timestamp = datetime.now()
+        print(f"Received command: {command} from user: {username}.")
+
         if command == '/logout':
             active_user.pop(username)
             log_active_user()
@@ -65,7 +77,30 @@ def handle_client(conn, addr):
             print(f"User: {username} is logged out.")
             break
         elif command == '/msgto':
-            ...
+            global message_id
+            if len(arguments) < 3:
+                conn.sendall(b'Usage: /msgto USERNAME MESSAGE_CONTENT\n')
+                print(f"Invalid arguements input by user: {username}.")
+                continue
+
+            recv = arguments[1]
+            content = " ".join(arguments[2:])
+            msg_timestamp = command_timestamp.strftime("%d %b %Y %H:%M:%S")
+
+            # log message
+            with open('messagelog.txt', 'a') as log:
+                log.write(f"{message_id}; {msg_timestamp}; {recv}; {content}\n")
+
+            conn.sendall(f"Message is successfully sent at {msg_timestamp}, id = {message_id}.\n".encode())
+            print(f"User: {username} requested {command}.")
+
+            message_id += 1
+
+            # display to the receiver
+            # dest_conn = active_user[recv][3]
+            # dest_conn.sendall(f"{msg_timestamp}, {username}: {content}\n".encode())
+
+
         elif command == '/activeuser':
             if len(arguments) != 1:
                 conn.sendall(b'Usage: /activeuser\n')
@@ -74,15 +109,14 @@ def handle_client(conn, addr):
 
             if len(active_user) == 1:
                 conn.sendall(b'no other active user.\n')
-                continue
+            else:
+                message = ""
+                for user, value in active_user.items():
+                    if user != username:
+                        message += f"{user}, active since {value[0]}. IP address: {value[1]}. UDP port: {value[2]}\n"
 
-            message = ""
-            for user, value in active_user.items():
-                if user != username:
-                    message += f"{user}, active since {value[0]}. IP address: {value[1]}. UDP port: {value[2]}\n"
-
-            conn.sendall(message.encode())
-            print(f"User: {username} requested /activeuser.")
+                conn.sendall(message.encode())
+            print(f"User: {username} requested {command}.")
         else:
             conn.sendall(b'Command not recognized.\n')
             print(f"Invalid command by user: {username}.")
@@ -130,7 +164,7 @@ def authenticate(conn, addr):
             print(f"User: {username} successfully logged in")
             client_upd_port = int(conn.recv(1024).decode().strip())
 
-            active_user[username] = (current_time, addr[0], client_upd_port)
+            active_user[username] = (current_time, addr[0], client_upd_port, conn)
             log_active_user()
 
             return username, client_upd_port
