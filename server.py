@@ -222,7 +222,7 @@ def handle_client(conn, addr):
 
                 # display to the receiver
                 dest_conn = active_user[recv][3]
-                dest_conn.sendall(f"\n\n{groupname}, {msg_timestamp}, {username}: {content}\n\n".encode())
+                dest_conn.sendall(f"\n\n{msg_timestamp}, {groupname}, {username}: {content}\n\n".encode())
                 dest_conn.sendall(COMMAND_PROMPT)
 
             conn.sendall(f"Group message is successfully sent at {msg_timestamp} in {groupname}.\n".encode())
