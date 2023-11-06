@@ -31,7 +31,7 @@ login_unblock_time = {}
 # Dict of all active users. The value field consist of (login time, IP, UDP port, conn)
 active_user = OrderedDict()
 
-# Dict of all chat groups. The value field cosist of ([members added], [members joined])
+# Dict of all chat groups. The value field cosist of [[members added], [members joined], group_message_id]
 groups = OrderedDict()
 
 with open(USER_LOG, 'w') as file:
@@ -152,7 +152,7 @@ def handle_client(conn, addr):
 
             members = invitees
             members.insert(0, username)
-            groups[groupname] = (members, [username])   # ([members_added], [members_joined])
+            groups[groupname] = [members, [username], 1]   # [[members_added], [members_joined], group_message_id]
 
             with open(f"{groupname}_{MSG_LOG}", 'w'):
                 pass
@@ -188,8 +188,47 @@ def handle_client(conn, addr):
             print(f"User: {username} successfully joined {groupname}.")
 
         elif command == '/groupmsg':
-            conn.sendall(b'Command not implemented.\n')
-            print(f"Unimplemented command by user: {username}.")
+            if len(arguments) < 3:
+                conn.sendall(b'Usage: /groupmsg groupname message\n')
+                print(f"Invalid arguements input by user: {username}. Request for {command} is denied.")
+                continue
+
+            groupname = arguments[1]
+            if groupname not in groups:
+                conn.sendall(f'Group: {groupname} does not exist. Please try again.\n'.encode())
+                print(f"Invalid group name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            if username not in groups[groupname][0]:
+                conn.sendall(f'You are not part of the group: {groupname}.\n'.encode())
+                print(f"Invalid group name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            joined_users = groups[groupname][1]
+            if username not in joined_users:
+                conn.sendall(f'You have not joined {groupname}.\n'.encode())
+                print(f"User: {username} has not joined the group. Request for {command} is denied.")
+                continue
+
+            content = " ".join(arguments[2:])
+            msg_timestamp = command_timestamp.strftime("%d %b %Y %H:%M:%S")
+
+            with open(f"{groupname}_{MSG_LOG}", 'a') as log:
+                log.write(f"{groups[groupname][2]}; {msg_timestamp}; {username}; {content}\n")
+
+            for recv in joined_users:
+                if recv == username:
+                    continue
+
+                # display to the receiver
+                dest_conn = active_user[recv][3]
+                dest_conn.sendall(f"\n\n{groupname}, {msg_timestamp}, {username}: {content}\n\n".encode())
+                dest_conn.sendall(COMMAND_PROMPT)
+
+            conn.sendall(f"Group message is successfully sent at {msg_timestamp} in {groupname}.\n".encode())
+            print(f"User: {username} requested {command} successfully.")
+
+            groups[groupname][2] += 1   # group_message_id
 
         elif command == '/unimplemented':
             conn.sendall(b'Command not implemented.\n')
