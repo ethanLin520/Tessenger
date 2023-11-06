@@ -31,6 +31,9 @@ login_unblock_time = {}
 # Dict of all active users. The value field consist of (login time, IP, UDP port, conn)
 active_user = OrderedDict()
 
+# Dict of all chat groups. The value field is list of all members with the first one being the creator.
+groups = OrderedDict()
+
 with open(USER_LOG, 'w') as file:
     pass
 
@@ -78,7 +81,7 @@ def handle_client(conn, addr):
             global message_id
             if len(arguments) < 3:
                 conn.sendall(b'Usage: /msgto USERNAME MESSAGE_CONTENT\n')
-                print(f"Invalid arguements input by user: {username}.")
+                print(f"Invalid arguements input by user: {username}. Request for {command} is denied.")
                 continue
 
             recv = arguments[1]
@@ -89,8 +92,6 @@ def handle_client(conn, addr):
             with open(MSG_LOG, 'a') as log:
                 log.write(f"{message_id}; {msg_timestamp}; {recv}; {content}\n")
 
-            message_id += 1
-
             # display to the receiver
             dest_conn = active_user[recv][3]
             dest_conn.sendall(f"\n\n{msg_timestamp}, {username}: {content}\n\n".encode())
@@ -99,10 +100,12 @@ def handle_client(conn, addr):
             conn.sendall(f"Message is successfully sent at {msg_timestamp}, id = {message_id}.\n".encode())
             print(f"User: {username} requested {command} successfully.")
 
+            message_id += 1
+
         elif command == '/activeuser':
             if len(arguments) != 1:
                 conn.sendall(b'Usage: /activeuser\n')
-                print(f"Invalid arguements input by user: {username}.")
+                print(f"Invalid arguements input by user: {username}. Request for {command} is denied.")
                 continue
 
             if len(active_user) == 1:
@@ -115,6 +118,46 @@ def handle_client(conn, addr):
                 userlist += '\n'
                 conn.sendall(userlist.encode())
             print(f"User: {username} requested {command} successfully.")
+
+        elif command == '/creategroup':
+            if len(arguments) < 3:
+                conn.sendall(b'Usage: /creategroup groupname username1 username2 ..\n')
+                print(f"Invalid arguements input by user: {username}. Request for {command} is denied.")
+                continue
+
+            groupname = arguments[1]
+            if groupname in groups:
+                conn.sendall(f'Group name: {groupname} already exist. Please try another name.\n'.encode())
+                print(f"Invalid group name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            # check name is legal
+            if not groupname.isalnum():
+                conn.sendall(f'Group name: {groupname} is not legal. Group name can only contain alphanumeric character. Please try another name.\n'.encode())
+                print(f"Invalid group name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            # check invitees are legal
+            invitees = arguments[2:]
+            invalid_invitee = []
+            for user in invitees:
+                if user not in active_user:
+                    invalid_invitee.append(user)
+
+            if invalid_invitee != []:
+                namelist = ", ".join(invalid_invitee)
+                conn.sendall(f'Invalid invitee username: {namelist}. Please try other users.\n'.encode())
+                print(f"Invalid invitee name input by user: {username}. Request for {command} is denied.")
+                continue
+
+            members = invitees.insert(0, username)
+            groups[groupname] = members
+
+            with open(f"{groupname}_{MSG_LOG}", 'w'):
+                pass
+
+            conn.sendall(f"\nGroup chat room has been created, room name: {groupname}, users in this room: {members}.\n\n".encode())
+            print(f"User: {username} successfully created the group chat: {groupname}.")
 
         elif command == '/help':
             conn.sendall(HELP_PROMPT.encode())
