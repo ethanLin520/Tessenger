@@ -43,7 +43,7 @@ def send_file_udp(target_ip, target_port, file_path, chunk_size=UDP_CHUNK):
             chunk = file.read(chunk_size)
             while chunk:
                 udp_sock.sendto(chunk, (target_ip, target_port))
-                # sleep(0.0001)
+                sleep(0.0001)
                 chunk = file.read(chunk_size)
 
         ending_prompt = f"File send has finished."
