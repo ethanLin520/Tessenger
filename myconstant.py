@@ -8,11 +8,12 @@ USER_LOG = 'userlog.txt'
 MSG_LOG = 'messagelog.txt'
 CREDENTIAL = 'credentials.txt'
 
-UDP_BUFFER = 1024
+UDP_BUFFER = 4096
+UDP_CHUNK = 2048
 
 #   TEXT
 
-COMMAND_PROMPT = b'Enter one of the following commands (/msgto, /activeuser, /creategroup, /joingroup, /groupmsg, /p2pvideo ,/logout, /help): '
+COMMAND_PROMPT = 'Enter one of the following commands (/msgto, /activeuser, /creategroup, /joingroup, /groupmsg, /p2pvideo ,/logout, /help): '
 
 HELP_PROMPT = """
 /msgto: Private message, which the user launches a private chat with another active user and send private messages,

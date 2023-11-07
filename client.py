@@ -2,24 +2,10 @@ import re
 import sys
 import socket
 import select
-import os
+import threading
+from time import sleep
 
-from myconstant import UDP_BUFFER
-
-def send_file_udp(target_ip, target_port, file_path, chunk_size=UDP_BUFFER):
-    udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        # Open the file
-        with open(file_path, 'rb') as file:
-            # Read and send the file in chunks
-            chunk = file.read(chunk_size)
-            while chunk:
-                udp_sock.sendto(chunk, (target_ip, target_port))
-                chunk = file.read(chunk_size)
-    except:
-        pass
-    finally:
-        udp_sock.close()
+from myconstant import UDP_BUFFER, UDP_CHUNK, COMMAND_PROMPT
 
 def udp_server(udp_port, buffer_size=UDP_BUFFER):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_sock:
@@ -29,15 +15,46 @@ def udp_server(udp_port, buffer_size=UDP_BUFFER):
         while True:
             data, addr = udp_sock.recvfrom(buffer_size)
             if data:
-                file_name = data.decode()
-                with open(file_name, 'wb') as file:
-                    while True:
-                        data, addr = udp_sock.recvfrom(buffer_size)
-                        if not data:
-                            break
-                        file.write(data)
-                print(f"Received file {file_name} from {addr}")
+                content = data.decode()
+                if content.startswith('Start sending file:'):
+                    file_name = content.split(':', 1)[1]
+                    with open(file_name, 'wb') as file:
+                        while True:
+                            data, addr = udp_sock.recvfrom(buffer_size)
+                            try:
+                                content = data.decode()
+                                if content == "File send has finished.":
+                                    break
+                            except UnicodeDecodeError:
+                                pass
+                            file.write(data)
 
+                    print(f"\n\nReceived file {file_name} from {addr}\n\n{COMMAND_PROMPT}", end='', flush=True)
+
+def send_file_udp(target_ip, target_port, file_path, chunk_size=UDP_CHUNK):
+    udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        starting_prompt = f"Start sending file:{file_name}"
+        udp_sock.sendto(starting_prompt.encode(), (target_ip, target_port))
+
+        # Open the file
+        with open(file_path, 'rb') as file:
+            # Read and send the file in chunks
+            chunk = file.read(chunk_size)
+            while chunk:
+                udp_sock.sendto(chunk, (target_ip, target_port))
+                # sleep(0.0001)
+                chunk = file.read(chunk_size)
+
+        ending_prompt = f"File send has finished."
+        udp_sock.sendto(ending_prompt.encode(), (target_ip, target_port))
+
+        print(f"Finished sending file {file_path} to {target_ip}:{target_port}.\n")
+
+    except Exception as e:
+        print(f"Error occurred in sending file {file_path}: {e}")
+    finally:
+        udp_sock.close()
 
 def read_user_list(txt):
     lines = txt.split('\n')
@@ -52,7 +69,6 @@ def read_user_list(txt):
             ip = match.group(3)
             port = int(match.group(4))
             result[user] = (ip, port)
-
     return result
 
 # Check if the correct number of arguments is provided
@@ -75,7 +91,13 @@ if not 1024 <= client_udp_port <= 65535:
     print("Invalid client UDP port number. Please use a port number between 1024 and 65535.")
     sys.exit(1)
 
+
 active_users = {}
+
+# Run UDP socket
+udp_thread = threading.Thread(target=udp_server, args=(client_udp_port,))
+udp_thread.daemon = True  # This ensures the thread will exit when the main program exits
+udp_thread.start()
 
 # Create a TCP/IP socket
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -114,20 +136,21 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if user_input.startswith('/p2pvideo'):
                 arguments = user_input.split()
                 if len(arguments) != 3:
-                    print('Usage: /p2pvideo username filename\n')
-                    continue
+                    print(f'Usage: /p2pvideo username filename')
+                else:
+                    _, target_username, file_name = arguments
 
-                if not active_users:
-                    print('No active users on record. Try running /activeuser to fetch current active users.')
+                    if not active_users:
+                        print('No active users on record. Try running /activeuser to fetch current active users.')
 
-                _, target_username, file_name = arguments
+                    elif target_username not in active_users:
+                        print(f'User: {target_username} is not an active user. Please try again.')
 
-                if target_username not in active_users:
-                    print(f'User: {target_username} is not an active user.')
-                    continue
+                    else:
+                        target_ip, target_udp_port = active_users[target_username]
+                        send_file_udp(target_ip, target_udp_port, file_name)
 
-                target_ip, target_udp_port = active_users[target_username]
-                send_file_udp(target_ip, target_udp_port, file_name)
+                print(COMMAND_PROMPT, end='', flush=True)
                 continue
 
             elif user_input == '/activeuser':
