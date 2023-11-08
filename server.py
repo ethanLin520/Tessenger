@@ -58,7 +58,7 @@ def handle_client(conn, addr):
 
     print(f'Connected by {addr}')
 
-    username, client_upd = authenticate(conn, addr)
+    username, _ = authenticate(conn, addr)
 
     # Main loop for handling commands
     while True:

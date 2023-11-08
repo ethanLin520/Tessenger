@@ -3,7 +3,7 @@ import sys
 import socket
 import select
 import threading
-from time import sleep
+from time import sleep, time
 
 from myconstant import UDP_BUFFER, UDP_CHUNK, COMMAND_PROMPT
 
@@ -18,12 +18,16 @@ def udp_server(udp_port, buffer_size=UDP_BUFFER):
                 content = data.decode()
                 if content.startswith('Start sending file:'):
                     file_name = content.split(':', 1)[1]
+                    sender = addr
                     with open(file_name, 'wb') as file:
                         while True:
                             data, addr = udp_sock.recvfrom(buffer_size)
+                            if addr != sender:
+                                print(f"Receiving file was interrupted by {addr}. File may be corrupted.", flush=True)
+                                break
+
                             try:
-                                content = data.decode()
-                                if content == "File send has finished.":
+                                if data.decode() == "File send has finished.":
                                     break
                             except UnicodeDecodeError:
                                 pass
@@ -34,22 +38,23 @@ def udp_server(udp_port, buffer_size=UDP_BUFFER):
 def send_file_udp(target_ip, target_port, file_path, chunk_size=UDP_CHUNK):
     udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        starting_prompt = f"Start sending file:{file_name}"
-        udp_sock.sendto(starting_prompt.encode(), (target_ip, target_port))
-
+        start_t = time()
         # Open the file
         with open(file_path, 'rb') as file:
+            starting_prompt = f"Start sending file:{file_name}"
+            udp_sock.sendto(starting_prompt.encode(), (target_ip, target_port))
             # Read and send the file in chunks
             chunk = file.read(chunk_size)
             while chunk:
                 udp_sock.sendto(chunk, (target_ip, target_port))
-                sleep(0.0001)
+                sleep(0.001)
                 chunk = file.read(chunk_size)
 
         ending_prompt = f"File send has finished."
         udp_sock.sendto(ending_prompt.encode(), (target_ip, target_port))
 
-        print(f"Finished sending file {file_path} to {target_ip}:{target_port}.\n")
+        duration = time() - start_t
+        print(f"Finished uploading file {file_path} to {target_ip}:{target_port}. Upload time: {round(duration, 2)}s.\n")
 
     except Exception as e:
         print(f"Error occurred in sending file {file_path}: {e}")
