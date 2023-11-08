@@ -6,25 +6,6 @@ from collections import OrderedDict
 
 from myconstant import *
 
-# Check if the correct number of arguments is provided
-if len(sys.argv) != 3:
-    print("Usage: python3 server.py server_port number_of_consecutive_failed_attempts")
-    sys.exit(1)
-
-# Extract command-line arguments
-server_port = int(sys.argv[1])
-max_attempts = int(sys.argv[2])
-
-# Check if the port number is valid
-if not 1024 <= server_port <= 65535:
-    print("Invalid port number. Please use a port number between 1024 and 65535.")
-    sys.exit(1)
-
-# Ensure max_attempts is between 1 and 5
-if not 1 <= max_attempts <= 5:
-    print("The number of consecutive failed attempts must be between 1 and 5.")
-    sys.exit(1)
-
 login_failed_attempt = {}
 login_unblock_time = {}
 
@@ -55,7 +36,8 @@ def handle_client(conn, addr):
     """
     Handle client's request.
     """
-
+    global active_user, groups, users_joined_groups
+    
     print(f'Connected by {addr}')
 
     username, _ = authenticate(conn, addr)
@@ -262,6 +244,8 @@ def authenticate(conn, addr):
     Authenticate user given a established connection.
     Return: username.
     """
+    global active_user, login_failed_attempt, login_unblock_time
+
     credentials = load_credentials()
 
     # print(login_failed_attempt)   # debug use
@@ -324,6 +308,25 @@ def log_active_user():
         for user, value in active_user.items():
             log.write(f'{i}; {value[0]}; {user}; {value[1]}; {value[2]}\n')
             i += 1
+
+# Check if the correct number of arguments is provided
+if len(sys.argv) != 3:
+    print("Usage: python3 server.py server_port number_of_consecutive_failed_attempts")
+    sys.exit(1)
+
+# Extract command-line arguments
+server_port = int(sys.argv[1])
+max_attempts = int(sys.argv[2])
+
+# Check if the port number is valid
+if not 1024 <= server_port <= 65535:
+    print("Invalid port number. Please use a port number between 1024 and 65535.")
+    sys.exit(1)
+
+# Ensure max_attempts is between 1 and 5
+if not 1 <= max_attempts <= 5:
+    print("The number of consecutive failed attempts must be between 1 and 5.")
+    sys.exit(1)
 
 # Create socket and bind to address
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
