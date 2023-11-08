@@ -39,11 +39,12 @@ def handle_client(conn, addr):
 
     print(f'Connected by {addr}')
 
-    username = authenticate(conn, addr)
+    username = None
+    try:
+        username = authenticate(conn, addr)
 
-    # Main loop for handling commands
-    while True:
-        try:
+        # Main loop for handling commands
+        while True:
             conn.sendall(COMMAND_PROMPT.encode())
             print("Waiting for user input...")
 
@@ -54,11 +55,13 @@ def handle_client(conn, addr):
             flag = handle_command(conn, username, arguments)
             if flag != 0:
                 break
-        except BrokenPipeError:
+    except BrokenPipeError:
+        if username:
             print(f"User: {username} has closed the connection.")
             logout(username)
-            break
-    
+        else:
+            print(f"{addr} is disconnected.")
+
     conn.close()
 
 def handle_command(conn, username, arguments):
@@ -84,6 +87,17 @@ def handle_command(conn, username, arguments):
             return 0
 
         recv = arguments[1]
+
+        if recv == username:
+            conn.sendall(b'You cannot message to yourself.\n')
+            print(f"Invalid receiver input by user: {username}. Request for {command} is denied.")
+            return 0
+
+        if recv not in active_user:
+            conn.sendall(f'User: {recv} is not an active user.\n'.encode())
+            print(f"Invalid receiver input by user: {username}. Request for {command} is denied.")
+            return 0
+
         content = " ".join(arguments[2:])
         msg_timestamp = command_timestamp.strftime("%d %b %Y %H:%M:%S")
 
@@ -251,16 +265,16 @@ def authenticate(conn, addr):
 
     credentials = load_credentials()
 
-    # print(login_failed_attempt)   # debug use
-
     while True:
         conn.sendall("Enter username: ".encode())
         username = conn.recv(1024).decode().strip()
-        print(f"Received username: {username}.")
+        if username:
+            print(f"Received username: {username}.")
 
         conn.sendall("Enter password: ".encode())
         password = conn.recv(1024).decode().strip()
-        print(f"Received password for {username}.")
+        if password:
+            print(f"Received password for {username}.")
 
         attempts = login_failed_attempt[username] if username in login_failed_attempt else 0
 
@@ -300,10 +314,11 @@ def authenticate(conn, addr):
         # Block user after max_attempts
         if attempts >= max_attempts:
             unblock = datetime.now() + timedelta(seconds=10)
-            login_unblock_time[username] = (unblock)
+            login_unblock_time[username] = unblock
             login_failed_attempt.pop(username)
-            conn.sendall(b'You are blocked due to multiple failed login attempts.\n')
+            conn.sendall(b'You are blocked due to multiple failed login attempts. Try again 10 seconds later.\n')
             print(f"User: {username} has attempted {attempts} time and is blocked until {unblock}.")
+
 
 def logout(username):
     global users_joined_groups, active_user
@@ -315,7 +330,7 @@ def logout(username):
     try:
         conn.sendall(b'You have successfully logged out.\n')
         conn.sendall(b'Goodbye!\n')
-    except BrokenPipeError:
+    except (BrokenPipeError, OSError):
         pass
     print(f"User: {username} is logged out.")
 
