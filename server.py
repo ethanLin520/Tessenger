@@ -58,11 +58,11 @@ def handle_client(conn, addr):
 
     print(f'Connected by {addr}')
 
-    username, client_upd = authenticate(conn, addr)
+    username, _ = authenticate(conn, addr)
 
     # Main loop for handling commands
     while True:
-        conn.sendall(COMMAND_PROMPT)
+        conn.sendall(COMMAND_PROMPT.encode())
         print("Waiting for user input...")
 
         arguments = conn.recv(1024).decode().strip().split()
@@ -108,7 +108,7 @@ def handle_client(conn, addr):
             # display to the receiver
             dest_conn = active_user[recv][3]
             dest_conn.sendall(f"\n\n{msg_timestamp}, {username}: {content}\n\n".encode())
-            dest_conn.sendall(COMMAND_PROMPT)
+            dest_conn.sendall(COMMAND_PROMPT.encode())
 
             conn.sendall(f"Message is successfully sent at {msg_timestamp}, id = {message_id}.\n".encode())
             print(f"User: {username} requested {command} successfully.")
@@ -237,16 +237,15 @@ def handle_client(conn, addr):
                 # display to the receiver
                 dest_conn = active_user[recv][3]
                 dest_conn.sendall(f"\n\n{msg_timestamp}, {groupname}, {username}: {content}\n\n".encode())
-                dest_conn.sendall(COMMAND_PROMPT)
+                dest_conn.sendall(COMMAND_PROMPT.encode())
 
             conn.sendall(f"Group message is successfully sent at {msg_timestamp} in {groupname}.\n".encode())
             print(f"User: {username} requested {command} successfully.")
 
             groups[groupname][2] += 1   # group_message_id
 
-        elif command == '/unimplemented':
-            conn.sendall(b'Command not implemented.\n')
-            print(f"Unimplemented command by user: {username}.")
+        elif command == '/p2pvideo':
+            pass
 
         elif command == '/help':
             conn.sendall(HELP_PROMPT.encode())
