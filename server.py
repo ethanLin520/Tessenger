@@ -159,7 +159,7 @@ def handle_command(conn, username, arguments):
 
         if invalid_invitee != []:
             namelist = ", ".join(invalid_invitee)
-            conn.sendall(f'Invalid invitee username: {namelist}. Please try other users.\n'.encode())
+            conn.sendall(f'Invalid username: {namelist}. These users are not active users. Please try other users.\n'.encode())
             print(f"Invalid invitee name input by user: {username}. Request for {command} is denied.")
             return 0
 
@@ -268,7 +268,11 @@ def authenticate(conn, addr):
     while True:
         conn.sendall("Enter username: ".encode())
         username = conn.recv(1024).decode().strip()
-        if username:
+        if not any(username == u for u, _ in credentials):
+            conn.sendall(f"{username} is not a registered user. Try again.\n".encode())
+            print(f"Invalid username: {username} input from {addr}.")
+            continue
+        elif username:
             print(f"Received username: {username}.")
 
         conn.sendall("Enter password: ".encode())
@@ -295,7 +299,7 @@ def authenticate(conn, addr):
             current_time = datetime.now().strftime("%d %b %Y %H:%M:%S")
             login_failed_attempt.pop(username, None)
             login_unblock_time.pop(username, None)
-            conn.sendall(b'Welcome!\n')
+            conn.sendall(f'Welcome! {username}\n'.encode())
             print(f"User: {username} successfully logged in")
             client_upd_port = int(conn.recv(1024).decode().strip())
 
