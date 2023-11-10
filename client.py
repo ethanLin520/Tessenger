@@ -111,6 +111,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     
     print("Connected to the server.")
 
+    username = None
     get_list = False
 
     while True:
@@ -126,7 +127,8 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
             prompt = data.decode()
             print(prompt, end='', flush=True)
-            if 'Welcome' in prompt:
+            if 'Welcome!' in prompt:
+                username = prompt.split('! ', maxsplit=1)[1].strip()
                 s.sendall(f"{client_udp_port}".encode())
             elif 'Goodbye' in prompt:
                 break
@@ -148,6 +150,9 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     if not active_users:
                         print('No active users on record. Try running /activeuser to fetch current active users.')
 
+                    elif target_username == username:
+                        print("You cannot share video to yourself.")
+
                     elif target_username not in active_users:
                         print(f'User: {target_username} is not an active user. Please try again.')
 
@@ -160,6 +165,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
             elif user_input == '/activeuser':
                 get_list = True
+
 
             s.sendall(user_input.encode())
 
