@@ -18,12 +18,6 @@ groups = OrderedDict()
 # Dict of all user's joined groups
 users_joined_groups = {}
 
-with open(USER_LOG, 'w') as file:
-    pass
-
-with open(MSG_LOG, 'w') as file:
-    pass
-
 message_id = 1
 
 # Load credentials from file
@@ -163,6 +157,8 @@ def handle_command(conn, username, arguments):
             print(f"Invalid invitee name input by user: {username}. Request for {command} is denied.")
             return 0
 
+        if username in invitees:
+            invitees.remove(username)
         members = invitees
         members.insert(0, username)
         groups[groupname] = [members, [username], 1]   # [[members_added], [members_joined], group_message_id]
@@ -268,7 +264,7 @@ def authenticate(conn, addr):
     while True:
         conn.sendall("Enter username: ".encode())
         username = conn.recv(1024).decode().strip()
-        if not any(username == u for u, _ in credentials):
+        if username and not any(username == u for u, _ in credentials):
             conn.sendall(f"{username} is not a registered user. Try again.\n".encode())
             print(f"Invalid username: {username} input from {addr}.")
             continue
@@ -319,9 +315,10 @@ def authenticate(conn, addr):
         if attempts >= max_attempts:
             unblock = datetime.now() + timedelta(seconds=10)
             login_unblock_time[username] = unblock
+            unblock = unblock.strftime("%d %b %Y %H:%M:%S")
             login_failed_attempt.pop(username)
             conn.sendall(b'You are blocked due to multiple failed login attempts. Try again 10 seconds later.\n')
-            print(f"User: {username} has attempted {attempts} time and is blocked until {unblock}.")
+            print(f"User: {username} has entered wrong credentials {attempts} time and is blocked until {unblock}.")
 
 
 def logout(username):
@@ -344,6 +341,12 @@ def log_active_user():
         for user, value in active_user.items():
             log.write(f'{i}; {value[0]}; {user}; {value[1]}; {value[2]}\n')
             i += 1
+
+with open(USER_LOG, 'w') as file:
+    pass
+
+with open(MSG_LOG, 'w') as file:
+    pass
 
 # Check if the correct number of arguments is provided
 if len(sys.argv) != 3:

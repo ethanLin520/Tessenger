@@ -5,7 +5,7 @@ import select
 import threading
 from time import sleep, time
 
-from myconstant import UDP_BUFFER, UDP_CHUNK, COMMAND_PROMPT
+from myconstant import UDP_BUFFER, UDP_CHUNK, COMMAND_PROMPT, UDP_SEND_PAUSE
 
 def udp_server(udp_port, buffer_size=UDP_BUFFER):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_sock:
@@ -47,7 +47,7 @@ def send_file_udp(target_ip, target_port, file_path, chunk_size=UDP_CHUNK):
             chunk = file.read(chunk_size)
             while chunk:
                 udp_sock.sendto(chunk, (target_ip, target_port))
-                sleep(0.001)
+                sleep(UDP_SEND_PAUSE)
                 chunk = file.read(chunk_size)
 
         ending_prompt = f"File send has finished."

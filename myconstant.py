@@ -10,6 +10,7 @@ CREDENTIAL = 'credentials.txt'
 
 UDP_BUFFER = 4096
 UDP_CHUNK = 2048
+UDP_SEND_PAUSE = 0.001
 
 #   TEXT
 
