@@ -8,6 +8,12 @@ from time import sleep, time
 from myconstant import UDP_BUFFER, UDP_CHUNK, COMMAND_PROMPT, UDP_SEND_PAUSE
 
 def udp_server(udp_port, buffer_size=UDP_BUFFER):
+    """Setup a client UDP server for P2P tranfer.
+
+    Args:
+        udp_port
+        buffer_size (optional): The buffer size for incoming chunk. Defaults to UDP_BUFFER (4096).
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp_sock:
         udp_sock.bind(('', udp_port))
         print(f"UDP server listening on port {udp_port}")
@@ -36,6 +42,14 @@ def udp_server(udp_port, buffer_size=UDP_BUFFER):
                     print(f"\n\nReceived file {file_name} from {addr}\n\n{COMMAND_PROMPT}", end='', flush=True)
 
 def send_file_udp(target_ip, target_port, file_path, chunk_size=UDP_CHUNK):
+    """Send a file in currenct working directory to (target_ip, target_port)
+
+    Args:
+        target_ip
+        target_port
+        file_path
+        chunk_size (optional): Max size of each chunk send. Defaults to UDP_CHUNK (2048).
+    """
     udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         start_t = time()
@@ -62,6 +76,14 @@ def send_file_udp(target_ip, target_port, file_path, chunk_size=UDP_CHUNK):
         udp_sock.close()
 
 def read_user_list(txt):
+    """Read a list of active user from the reply of the server.
+
+    Args:
+        txt: Server's reply message.
+
+    Returns:
+        dict: {username: (IP, port)}
+    """
     lines = txt.split('\n')
     pattern = r"(.+), active since (.+). IP address: (.+). UDP port: (.+)"
 
@@ -96,7 +118,7 @@ if not 1024 <= client_udp_port <= 65535:
     print("Invalid client UDP port number. Please use a port number between 1024 and 65535.")
     sys.exit(1)
 
-
+# Global variable to store active users
 active_users = {}
 
 # Run UDP socket

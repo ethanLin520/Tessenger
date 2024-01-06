@@ -6,35 +6,47 @@ from collections import OrderedDict
 
 from myconstant import *
 
+# Dict of failed attempts by user. Value: (int)
 login_failed_attempt = {}
+
+# Dict for the unblock time for blocked user. Value: (timestamp)
 login_unblock_time = {}
 
-# Dict of all active users. The value field consist of (login time, IP, UDP port, conn)
+# Dict of all active users. Value: (login time, IP, UDP port, conn)
 active_user = OrderedDict()
 
-# Dict of all chat groups. The value field cosist of [[members added], [members joined], group_message_id]
+# Dict of all chat groups. Value: [[members added], [members joined], group_message_id]
 groups = OrderedDict()
 
-# Dict of all user's joined groups
+# Dict of all user's joined groups. Value: [group names]
 users_joined_groups = {}
 
+# Global message id for DM
 message_id = 1
 
 # Load credentials from file
 def load_credentials():
+    """
+    Load the credentials store in txt file.
+
+    Return: List of [username, password]
+    """
     with open(CREDENTIAL, 'r') as f:
         return [line.strip().split() for line in f.readlines()]
 
-# Handle client connection
 def handle_client(conn, addr):
-    """
-    Handle client's request.
+    """Handle a client connection
+
+    Args:
+        conn: client's connection
+        addr: client's IP address
     """
 
     print(f'Connected by {addr}')
 
     username = None
     try:
+        # Authenticate client
         username = authenticate(conn, addr)
 
         # Main loop for handling commands
@@ -59,6 +71,15 @@ def handle_client(conn, addr):
     conn.close()
 
 def handle_command(conn, username, arguments):
+    """Handle a client's command
+
+    Args:
+        conn
+        username
+        arguments
+    Returns:
+        int: 0 = continue serving, otherwise stop handling command.
+    """
     global active_user, groups, users_joined_groups
     command = arguments[0]
     command_timestamp = datetime.now()
@@ -322,6 +343,11 @@ def authenticate(conn, addr):
 
 
 def logout(username):
+    """Logout user
+
+    Args:
+        username
+    """
     global users_joined_groups, active_user
     for g in users_joined_groups[username]:
         groups[g][1].remove(username)
@@ -336,16 +362,17 @@ def logout(username):
     print(f"User: {username} is logged out.")
 
 def log_active_user():
+    """
+    Log the current active user on the server to the log file.
+    """
     i = 1
     with open(USER_LOG, 'w') as log:
         for user, value in active_user.items():
             log.write(f'{i}; {value[0]}; {user}; {value[1]}; {value[2]}\n')
             i += 1
 
-with open(USER_LOG, 'w') as file:
-    pass
-
-with open(MSG_LOG, 'w') as file:
+# Create log files for later use
+with open(USER_LOG, 'w') as user_log_file, open(MSG_LOG, 'w') as msg_log_file:
     pass
 
 # Check if the correct number of arguments is provided
